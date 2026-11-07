@@ -105,7 +105,58 @@ const fiches = defineCollection({
     aVerifier: z.array(z.string()).default([]), // points de relecture, visibles seulement en local
     statut: z.enum(['brouillon', 'relue', 'publiee']).default('brouillon'),
     miseAJour: z.coerce.date(),
-  }),
+  }).superRefine(gardeFous),
 });
+
+/**
+ * Garde-fous de publication : une fiche ne peut pas changer de statut tant que la relecture
+ * n'est pas faite. Si une règle n'est pas respectée, le site refuse de se construire
+ * et le message dit exactement ce qui manque.
+ *  - « relue »   : toutes les sources sont cochées « vérifiée ».
+ *  - « publiee » : en plus, la liste « À vérifier » est vide, les données de chaque graphique
+ *                  sont vérifiées, et chaque source citée existe bien dans la liste des sources.
+ */
+function gardeFous(f: any, ctx: z.RefinementCtx) {
+  if (f.statut === 'brouillon') return;
+  const statut = f.statut === 'relue' ? '« relue »' : '« publiée »';
+  const refuser = (message: string, path: (string | number)[]) =>
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Statut ${statut} impossible : ${message}`, path });
+
+  f.sources.forEach((s: any, i: number) => {
+    if (!s.verifiee) refuser(`la source « ${s.id} » (${s.auteur}) n'est pas cochée comme vérifiée.`, ['sources', i, 'verifiee']);
+  });
+  if (f.statut !== 'publiee') return;
+
+  if (f.aVerifier.length) {
+    refuser(`la liste « À vérifier » contient encore ${f.aVerifier.length} point(s).`, ['aVerifier']);
+  }
+  const graphiques: [string, any][] = [];
+  f.arguments.forEach((a: any, i: number) => {
+    if (a.graphique) graphiques.push([`arguments.${i}.graphique`, a.graphique]);
+    if (a.barres) graphiques.push([`arguments.${i}.barres`, a.barres]);
+  });
+  f.objections.forEach((o: any, i: number) => {
+    if (o.barres) graphiques.push([`objections.${i}.barres`, o.barres]);
+  });
+  for (const [chemin, g] of graphiques) {
+    if (!g.verifie) refuser(`les données du graphique « ${g.titre} » ne sont pas vérifiées.`, chemin.split('.'));
+  }
+
+  const ids = new Set(f.sources.map((s: any) => s.id));
+  const citees: [string, string][] = [];
+  f.arguments.forEach((a: any, i: number) => {
+    a.sources.forEach((id: string) => citees.push([id, `arguments.${i}`]));
+    if (a.graphique) citees.push([a.graphique.source, `arguments.${i}.graphique`]);
+    a.barres?.barres.forEach((b: any) => citees.push([b.source, `arguments.${i}.barres`]));
+  });
+  f.objections.forEach((o: any, i: number) => {
+    o.sources.forEach((id: string) => citees.push([id, `objections.${i}`]));
+    o.barres?.barres.forEach((b: any) => citees.push([b.source, `objections.${i}.barres`]));
+  });
+  f.contexte.forEach((c: any, i: number) => c.sources.forEach((id: string) => citees.push([id, `contexte.${i}`])));
+  for (const [id, chemin] of citees) {
+    if (!ids.has(id)) refuser(`la source « ${id} », citée dans ${chemin}, n'existe pas dans la liste des sources.`, chemin.split('.'));
+  }
+}
 
 export const collections = { fiches };

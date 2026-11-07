@@ -14,6 +14,7 @@
   --s1: #b5462f; /* série 1 : palette validée (daltonisme, contraste) */
   --s2: #2a6fb8;
   --bar-neutre: #8f877b; /* barres « de comparaison », contraste ≥ 3:1 sur la surface */
+  --surligne: color-mix(in srgb, var(--accent) 24%, transparent); /* trait sous le gras */
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-title: 'Fraunces', Georgia, serif;
   color-scheme: light;
@@ -34,6 +35,7 @@
     --s1: #d9694f;
     --s2: #4f8fd6;
     --bar-neutre: #8a8278;
+    --surligne: color-mix(in srgb, var(--accent) 38%, transparent);
     color-scheme: dark;
   }
 }
@@ -224,7 +226,14 @@ h2.pivot { color: var(--accent); font-size: 1.6rem; margin-top: 44px; }
 .arg-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-top: 6px; }
 .arg-foot .actions { display: flex; gap: 6px; }
 strong { font-weight: 650; }
-.oneliner strong, ul.vrai strong, .arg-body strong, details.objection strong { color: var(--text); background: linear-gradient(transparent 62%, var(--accent-soft) 62%); }
+/* Gras des textes de fiche : un trait surligneur fin, sous la ligne de base, qui ne recouvre pas les lettres */
+.oneliner strong, ul.vrai strong, .arg-body strong, details.objection strong, ol.frise strong, .prose strong {
+  color: var(--text);
+  background: linear-gradient(transparent 72%, var(--surligne) 72%, var(--surligne) 94%, transparent 94%);
+  padding: 0 1px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
 a.lien-fiche { text-decoration-style: dotted; text-underline-offset: 3px; }
 ul.lectures { padding-left: 18px; }
 ul.lectures li { margin-bottom: 10px; }
@@ -361,7 +370,13 @@ dl.concepts dt { font-weight: 600; margin-top: 10px; }
 dl.concepts dd { margin: 2px 0 0; color: var(--muted); }
 ol.sources { padding-left: 20px; font-size: .92rem; }
 ol.sources li { margin-bottom: 8px; }
-.unverified { color: var(--warn); font-weight: 600; font-size: .8rem; }
+/* Pastille « À vérifier » : même forme que la case « Vérifiée » du mode édition, en orangé */
+.unverified {
+  display: inline-flex; align-items: center; margin-left: 8px;
+  padding: 2px 8px; border-radius: 99px;
+  background: var(--warn-soft); color: var(--warn);
+  font-weight: 600; font-size: .78rem; line-height: 1.5; white-space: nowrap;
+}
 .notice {
   background: var(--warn-soft);
   color: var(--warn);

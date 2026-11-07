@@ -23,6 +23,8 @@
 | `relue` | Toutes les sources ouvertes et vérifiées (`verifiee: true`) | Non |
 | `publiee` | Relue, cohérente, validée | Oui |
 
+Ces règles sont **vérifiées automatiquement** (voir `gardeFous` dans `src/content.config.ts`) : une fiche « relue » doit avoir toutes ses sources cochées ; une fiche « publiée » doit en plus avoir une liste « À vérifier » vide, des graphiques aux données vérifiées et aucune source citée manquante. Sinon, le site refuse de se construire et le message dit ce qui manque.
+
 ## Relecture : la liste de contrôle
 
 - [ ] J'ai ouvert chaque source et retrouvé le chiffre exact.
