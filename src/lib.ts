@@ -30,8 +30,11 @@ const restaurer = (s: string) => s.replace(/\u0000(\d+)\u0000/g, (_, n: string) 
  * Un renvoi vers une fiche absente (pas encore écrite, ou non publiée) devient du texte simple.
  */
 export function md(texte: string, fichesExistantes: Set<string>): string {
+  // Une fiche absente garde la trace du lien (data-fiche), pour que l'édition sur la page ne le perde pas.
   const versFiche = (slug: string, t: string) =>
-    fichesExistantes.has(slug) ? `<a class="lien-fiche" href="/fiches/${slug}">${t}</a>` : t;
+    fichesExistantes.has(slug)
+      ? `<a class="lien-fiche" href="/fiches/${slug}">${t}</a>`
+      : `<span class="lien-fiche-absent" data-fiche="${slug}">${t}</span>`;
   let s = echapper(proteger(texte.trim()));
   s = s.replace(/\[\[([a-z0-9-]+)(?:\|([^\]]+))?\]\]/g, (_, slug: string, l?: string) => versFiche(slug, l ?? slug.replace(/-/g, ' ')));
   s = s.replace(/\[([^\]]+)\]\(\/fiches\/([a-z0-9-]+)\/?\)/g, (_, t: string, slug: string) => versFiche(slug, t));

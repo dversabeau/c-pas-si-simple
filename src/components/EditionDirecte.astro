@@ -1,0 +1,212 @@
+---
+/**
+ * Édition directe sur la page d'une fiche (en local uniquement).
+ * Le bouton « Modifier sur la page » rend modifiables tous les éléments marqués data-champ.
+ * Les textes riches sont reconvertis en Markdown (**gras**, *italique*, [lien](…)),
+ * puis envoyés à /api/edition qui met à jour le fichier de la fiche.
+ */
+interface Props { fiche: string }
+const { fiche } = Astro.props;
+---
+<div class="edition" data-fiche={fiche}>
+  <button type="button" class="edition-ouvrir">Modifier sur la page</button>
+  <div class="edition-barre" role="toolbar" aria-label="Édition de la fiche" hidden>
+    <span class="edition-etat">Mode édition</span>
+    <span class="edition-outils">
+      <button type="button" data-cmd="bold" title="Gras (Ctrl+B)"><b>G</b></button>
+      <button type="button" data-cmd="italic" title="Italique (Ctrl+I)"><i>I</i></button>
+      <button type="button" data-cmd="lien" title="Lien (Ctrl+K)">Lien</button>
+    </span>
+    <span class="edition-actions">
+      <button type="button" class="edition-annuler">Annuler</button>
+      <button type="button" class="edition-enregistrer" disabled>Enregistrer</button>
+    </span>
+  </div>
+</div>
+
+<style is:global>
+  .edition-ouvrir {
+    position: fixed; right: 16px; bottom: 16px; z-index: 20;
+    font: inherit; font-weight: 600; font-size: .9rem;
+    padding: 10px 16px; border-radius: 99px; border: none; cursor: pointer;
+    background: var(--accent); color: #fff; box-shadow: 0 6px 20px rgb(0 0 0 / .18);
+  }
+  .edition-barre {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 20;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+    max-width: calc(100vw - 32px); padding: 8px 10px 8px 16px; border-radius: 14px;
+    background: var(--text); color: var(--bg); box-shadow: 0 8px 28px rgb(0 0 0 / .25);
+    font-size: .9rem;
+  }
+  .edition-barre[hidden] { display: none; }
+  .edition-etat { font-weight: 600; }
+  .edition-outils, .edition-actions { display: flex; gap: 6px; }
+  .edition-barre button {
+    font: inherit; font-size: .85rem; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+    border: 1px solid color-mix(in srgb, var(--bg) 30%, transparent); background: transparent; color: var(--bg);
+  }
+  .edition-barre .edition-enregistrer { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .edition-barre button:disabled { opacity: .45; cursor: default; }
+
+  body.en-edition [data-champ] {
+    outline: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: 3px; border-radius: 3px; cursor: text;
+  }
+  body.en-edition [data-champ]:focus { outline: 2px solid var(--accent); background: var(--accent-soft); }
+  body.en-edition [data-champ].modifie { outline-style: solid; }
+  body.en-edition { padding-bottom: 90px; }
+  .lien-fiche-absent { text-decoration: underline dotted var(--muted); }
+</style>
+
+<script>
+  const racine = document.querySelector<HTMLElement>('.edition')!;
+  const fiche = racine.dataset.fiche!;
+  const ouvrir = racine.querySelector<HTMLButtonElement>('.edition-ouvrir')!;
+  const barre = racine.querySelector<HTMLElement>('.edition-barre')!;
+  const etat = racine.querySelector<HTMLElement>('.edition-etat')!;
+  const enregistrer = racine.querySelector<HTMLButtonElement>('.edition-enregistrer')!;
+  const annuler = racine.querySelector<HTMLButtonElement>('.edition-annuler')!;
+  const champs = () => [...document.querySelectorAll<HTMLElement>('[data-champ]')];
+  const originaux = new Map<HTMLElement, string>();
+
+  // ---------- HTML de la page → Markdown du fichier ----------
+  function versMarkdown(noeud: Node): string {
+    if (noeud.nodeType === Node.TEXT_NODE) return (noeud.textContent ?? '').replace(/ /g, ' ');
+    if (!(noeud instanceof HTMLElement)) return '';
+    const dedans = [...noeud.childNodes].map(versMarkdown).join('');
+    const tag = noeud.tagName;
+    if (tag === 'BR') return '\n\n';
+    if ((tag === 'STRONG' || tag === 'B') && dedans.trim()) return `**${dedans}**`;
+    if ((tag === 'EM' || tag === 'I') && dedans.trim()) return `*${dedans}*`;
+    if (tag === 'A') {
+      const href = noeud.getAttribute('href') ?? '';
+      return href ? `[${dedans}](${href})` : dedans;
+    }
+    if (noeud.classList.contains('lien-fiche-absent')) return `[${dedans}](/fiches/${noeud.dataset.fiche})`;
+    if (tag === 'DIV' || tag === 'P') return `\n\n${dedans}`;
+    return dedans;
+  }
+  const valeurDe = (el: HTMLElement) =>
+    el.dataset.format === 'texte'
+      ? (el.textContent ?? '').replace(/\s+/g, ' ').trim()
+      : versMarkdown(el).replace(/\*\*\*\*/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+  // ---------- Suivi des modifications ----------
+  const modifies = () => champs().filter((el) => el.innerHTML !== originaux.get(el));
+  function majEtat() {
+    const n = modifies().length;
+    champs().forEach((el) => el.classList.toggle('modifie', el.innerHTML !== originaux.get(el)));
+    etat.textContent = n ? `${n} modification${n > 1 ? 's' : ''}` : 'Mode édition';
+    enregistrer.disabled = n === 0;
+  }
+
+  function entrer() {
+    document.body.classList.add('en-edition');
+    ouvrir.hidden = true;
+    barre.hidden = false;
+    document.querySelectorAll<HTMLDetailsElement>('details.arg, details.objection').forEach((d) => (d.open = true));
+    document.querySelectorAll<HTMLDetailsElement>('details.annexe').forEach((d) => {
+      if (d.querySelector('[data-champ]')) d.open = true;
+    });
+    champs().forEach((el) => {
+      originaux.set(el, el.innerHTML);
+      el.contentEditable = el.dataset.format === 'texte' ? 'plaintext-only' : 'true';
+      el.spellcheck = true;
+    });
+    majEtat();
+  }
+  function sortir() {
+    document.body.classList.remove('en-edition');
+    champs().forEach((el) => {
+      el.removeAttribute('contenteditable');
+      el.classList.remove('modifie');
+    });
+    barre.hidden = true;
+    ouvrir.hidden = false;
+  }
+
+  ouvrir.addEventListener('click', entrer);
+  annuler.addEventListener('click', () => {
+    if (modifies().length && !confirm('Abandonner les modifications non enregistrées ?')) return;
+    champs().forEach((el) => (el.innerHTML = originaux.get(el) ?? el.innerHTML));
+    sortir();
+  });
+
+  // En mode édition, cliquer sur un titre de carte ne la replie pas, et les liens ne s'ouvrent pas.
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('en-edition')) return;
+    const t = e.target as HTMLElement;
+    if (t.closest('[data-champ]')) e.preventDefault();
+  }, true);
+  document.addEventListener('input', (e) => {
+    if ((e.target as HTMLElement).closest?.('[data-champ]')) majEtat();
+  });
+  // Entrée : pas de nouvelle ligne dans les champs courts ; Ctrl+K : lien.
+  document.addEventListener('keydown', (e) => {
+    const el = (e.target as HTMLElement).closest?.<HTMLElement>('[data-champ]');
+    if (!el || !document.body.classList.contains('en-edition')) return;
+    if (e.key === 'Enter' && el.dataset.format === 'texte') e.preventDefault();
+    if (e.key === 'Enter' && el.dataset.format !== 'texte' && !e.shiftKey) e.preventDefault();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); lien(); }
+  });
+  // Coller : texte brut seulement, pour ne pas importer la mise en forme d'un autre site.
+  document.addEventListener('paste', (e) => {
+    const el = (e.target as HTMLElement).closest?.('[data-champ]');
+    if (!el || !document.body.classList.contains('en-edition')) return;
+    e.preventDefault();
+    document.execCommand('insertText', false, e.clipboardData?.getData('text/plain') ?? '');
+  });
+
+  function lien() {
+    const sel = getSelection();
+    const el = sel?.anchorNode?.parentElement?.closest<HTMLElement>('[data-champ]');
+    if (!sel || sel.isCollapsed || !el || el.dataset.format === 'texte') return;
+    const adresse = prompt('Adresse du lien (https://… ou /fiches/adresse-de-la-fiche) :');
+    if (adresse) document.execCommand('createLink', false, adresse.trim());
+    majEtat();
+  }
+  barre.querySelectorAll<HTMLButtonElement>('[data-cmd]').forEach((b) =>
+    b.addEventListener('mousedown', (e) => {
+      e.preventDefault(); // garde la sélection dans le texte
+      const el = getSelection()?.anchorNode?.parentElement?.closest<HTMLElement>('[data-champ]');
+      if (!el || el.dataset.format === 'texte') return;
+      if (b.dataset.cmd === 'lien') lien();
+      else document.execCommand(b.dataset.cmd!);
+      majEtat();
+    }),
+  );
+
+  // ---------- Enregistrement ----------
+  enregistrer.addEventListener('click', async () => {
+    const modifications = modifies().map((el) => ({ chemin: el.dataset.champ!, valeur: valeurDe(el) }));
+    enregistrer.disabled = true;
+    etat.textContent = 'Enregistrement…';
+    try {
+      const r = await fetch('/api/edition', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ fiche, modifications }),
+      });
+      const reponse = await r.json();
+      if (!r.ok) throw new Error(reponse.erreur ?? 'Erreur inconnue');
+      try { sessionStorage.setItem('edition-retour', String(scrollY)); } catch {}
+      etat.textContent = 'Enregistré';
+      setTimeout(() => location.reload(), 400);
+    } catch (err) {
+      etat.textContent = 'Échec';
+      alert(`L'enregistrement a échoué : ${(err as Error).message}`);
+      enregistrer.disabled = false;
+    }
+  });
+
+  // Après rechargement, on revient au même endroit de la page.
+  try {
+    const y = sessionStorage.getItem('edition-retour');
+    if (y) {
+      sessionStorage.removeItem('edition-retour');
+      requestAnimationFrame(() => scrollTo(0, Number(y)));
+      const toast = document.getElementById('toast');
+      if (toast) { toast.textContent = 'Modifications enregistrées'; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1800); }
+    }
+  } catch {}
+</script>

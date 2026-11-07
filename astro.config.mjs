@@ -37,6 +37,8 @@ const editeur = {
         'import "@keystatic/astro/ui";\nimport "@keystatic/astro/api";\nimport "@keystatic/core/ui";\n',
       );
       injectRoute({ entrypoint: './editeur/keystatic-page.astro', pattern: '/keystatic/[...params]', prerender: false });
+      // Édition directe sur la page des fiches (bouton « Modifier sur la page »)
+      injectRoute({ entrypoint: './editeur/api-edition.ts', pattern: '/api/edition', prerender: false });
       injectRoute({
         entrypoint: '@keystatic/astro/internal/keystatic-api.js',
         pattern: '/api/keystatic/[...params]',

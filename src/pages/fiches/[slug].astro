@@ -2,6 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import Graphique from '../../components/Graphique.astro';
 import GraphiqueBarres from '../../components/GraphiqueBarres.astro';
+import EditionDirecte from '../../components/EditionDirecte.astro';
 import { render } from 'astro:content';
 import { getFiches, THEMES, md, texteBrut } from '../../lib';
 
@@ -49,6 +50,9 @@ const liees = [...choisies, ...retours].map((id) => toutes.find((o) => o.id === 
 
 const nonVerifiees = d.sources.filter((s) => !s.verifiee).length;
 const dev = import.meta.env.DEV;
+// Édition sur la page (en local) : chaque texte modifiable porte le chemin de son champ.
+const ch = (chemin: string, format: 'texte' | 'riche' = 'riche') =>
+  dev ? { 'data-champ': chemin, 'data-format': format } : {};
 const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 ---
 <Base title={`« ${d.titre} » | C pas si simple`} description={texteBrut(d.enUnePhrase)}>
@@ -57,7 +61,7 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
       <span class={`tag t-${d.theme}`}>{THEMES[d.theme]}</span>
       {d.statut !== 'publiee' && <span class={`tag ${d.statut}`}>{d.statut}</span>}
     </div>
-    <h1>« {d.titre} »</h1>
+    <h1>« <span {...ch("titre", "texte")}>{d.titre}</span> »</h1>
     <p class="maj">
       Mis à jour le {date} · {d.sources.length} sources
       {dev && <> · <a class="modifier" href={`/keystatic/collection/fiches/item/${fiche.id}`}>Modifier cette fiche</a></>}
@@ -76,10 +80,10 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
     {d.objections.length > 0 && (
       <>
         <h2>Arguments récurrents</h2>
-        {d.objections.map((o) => (
+        {d.objections.map((o, i) => (
           <details class="card objection">
-            <summary>« {o.objection} »</summary>
-            <p set:html={f(o.reponse)} />
+            <summary>« <span {...ch(`objections.${i}.objection`, "texte")}>{o.objection}</span> »</summary>
+            <p {...ch(`objections.${i}.reponse`)} set:html={f(o.reponse)} />
             {o.barres && <GraphiqueBarres {...propsBarres(o.barres)} />}
             {o.sources.length > 0 && (
               <div class="refs">
@@ -92,21 +96,21 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
     )}
 
     <h2>En résumé</h2>
-    <p class="oneliner" set:html={f(d.enUnePhrase)} />
+    <p class="oneliner" {...ch("enUnePhrase")} set:html={f(d.enUnePhrase)} />
 
     <h2>Quelques chiffres</h2>
     <div class="args">
       {d.arguments.map((a, i) => (
         <details class="arg" id={`arg-${i + 1}`}>
           <summary>
-            <span class="chiffre">{a.chiffre}</span>
-            <span class="accroche">{a.titre}</span>
+            <span class="chiffre" {...ch(`arguments.${i}.chiffre`, "texte")}>{a.chiffre}</span>
+            <span class="accroche" {...ch(`arguments.${i}.titre`, "texte")}>{a.titre}</span>
             <span class="plus" aria-hidden="true"></span>
           </summary>
           <div class="arg-body">
             <div class="bloc">
               <h4>Le constat</h4>
-              <p set:html={f(a.constat)} />
+              <p {...ch(`arguments.${i}.constat`)} set:html={f(a.constat)} />
             </div>
             {a.graphique && src[a.graphique.source] && (
               <Graphique
@@ -118,7 +122,7 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
             {a.barres && <GraphiqueBarres {...propsBarres(a.barres)} />}
             <div class="bloc">
               <h4>Ce que ça montre</h4>
-              <p set:html={f(a.montre)} />
+              <p {...ch(`arguments.${i}.montre`)} set:html={f(a.montre)} />
             </div>
             <div class="arg-foot">
               <span class="refs">
@@ -140,13 +144,13 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
       <>
         <h2>Le contexte politique</h2>
         <ol class="frise">
-          {d.contexte.map((c) => (
+          {d.contexte.map((c, i) => (
             <li>
-              <div class="frise-date">{c.date}</div>
+              <div class="frise-date" {...ch(`contexte.${i}.date`, "texte")}>{c.date}</div>
               <div class="frise-corps">
-                <div class="frise-acteur">{c.acteur}</div>
-                <p set:html={f(c.fait)} />
-                {c.effet && <p class="frise-effet" set:html={f(c.effet)} />}
+                <div class="frise-acteur" {...ch(`contexte.${i}.acteur`, "texte")}>{c.acteur}</div>
+                <p {...ch(`contexte.${i}.fait`)} set:html={f(c.fait)} />
+                {c.effet && <p class="frise-effet" {...ch(`contexte.${i}.effet`)} set:html={f(c.effet)} />}
                 <span class="refs">
                   {ref(c.sources).map((s) => <span>[{num[s.id]}] <a href={s.url} target="_blank" rel="noopener">{s.auteur}, {s.annee}</a> </span>)}
                 </span>
@@ -197,7 +201,7 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
         <details class="annexe">
           <summary>Lexique <span class="hint">{d.concepts.length} notions expliquées</span></summary>
           <dl class="concepts">
-            {d.concepts.map((c) => (<><dt>{c.terme}</dt><dd set:html={f(c.definition)} /></>))}
+            {d.concepts.map((c, i) => (<><dt {...ch(`concepts.${i}.terme`, "texte")}>{c.terme}</dt><dd {...ch(`concepts.${i}.definition`)} set:html={f(c.definition)} /></>))}
           </dl>
         </details>
       )}
@@ -217,6 +221,8 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
 
     <button class="copy" type="button" data-copy={url} style="margin-top:18px">Copier le lien de la fiche</button>
   </article>
+
+  {dev && <EditionDirecte fiche={fiche.id} />}
 
   <script>
     const toast = document.getElementById('toast')!;
