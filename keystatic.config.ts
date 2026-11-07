@@ -64,6 +64,7 @@ const barres = fields.object(
       options: [
         { label: '%', value: '%' },
         { label: 'Md€', value: 'Md€' },
+        { label: 'Nombre (effectifs)', value: 'nombre' },
       ],
       defaultValue: '%',
     }),

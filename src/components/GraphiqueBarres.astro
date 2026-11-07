@@ -15,7 +15,7 @@ interface Barre {
 }
 interface Props {
   titre: string;
-  unite: '%' | 'Md€';
+  unite: '%' | 'Md€' | 'nombre';
   barres: Barre[];
   note?: string;
   verifie: boolean;
@@ -27,8 +27,9 @@ const ed = (cle: string) => (champ ? { 'data-champ': `${champ}.${cle}`, 'data-fo
 
 const echelle = Math.max(...barres.map((b) => b.max ?? b.valeur));
 const nombre = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+const avecUnite = (v: string) => (unite === 'nombre' ? v : `${v} ${unite}`);
 const texte = (b: Barre) =>
-  b.max != null ? `${nombre(b.valeur)} à ${nombre(b.max)} ${unite}` : `${nombre(b.valeur)} ${unite}`;
+  b.max != null ? avecUnite(`${nombre(b.valeur)} à ${nombre(b.max)}`) : avecUnite(nombre(b.valeur));
 // La plus longue barre occupe 72 % de la piste : il reste la place d'écrire la valeur au bout.
 const pct = (v: number) => `${((v / echelle) * 72).toFixed(2)}%`;
 // Sources uniques, dans l'ordre d'apparition
@@ -47,7 +48,7 @@ const sources = [...new Map(barres.map((b) => [b.sourceUrl, b])).values()];
           <span {...ed(`barres.${k}.libelle`)}>{b.libelle}</span>
           {b.detail && <small {...ed(`barres.${k}.detail`)}>{b.detail}</small>}
         </div>
-        <div class="b-piste" role="img" aria-label={`${b.libelle} : ${texte(b)}${b.dont ? `, dont ${nombre(b.dont.valeur)} ${unite} ${b.dont.libelle}` : ''}`}>
+        <div class="b-piste" role="img" aria-label={`${b.libelle} : ${texte(b)}${b.dont ? `, dont ${avecUnite(nombre(b.dont.valeur))} ${b.dont.libelle}` : ''}`}>
           {b.dont ? (
             <>
               <span class="b-plein b-dont" style={`width:${pct(b.dont.valeur)}`}></span>
@@ -61,7 +62,7 @@ const sources = [...new Map(barres.map((b) => [b.sourceUrl, b])).values()];
         </div>
         {b.dont && (
           <div class="b-dont-legende">
-            <i></i>dont ≈ {nombre(b.dont.valeur)} {unite} : {b.dont.libelle}
+            <i></i>dont ≈ {avecUnite(nombre(b.dont.valeur))} : {b.dont.libelle}
           </div>
         )}
       </li>

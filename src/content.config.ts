@@ -42,7 +42,7 @@ const graphique = z.object({
 // Chaque barre cite sa propre source : on peut comparer des chiffres issus de documents différents.
 const barres = z.object({
   titre: z.string(),
-  unite: z.enum(['%', 'Md€']),
+  unite: z.enum(['%', 'Md€', 'nombre']), // « nombre » : effectifs (151 000, 2 800 000), sans unité
   barres: z.array(z.object({
     libelle: z.string(),
     valeur: z.number(), // valeur affichée (ou bas de fourchette si `max` est donné)

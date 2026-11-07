@@ -108,6 +108,7 @@ approfondir:
     url: "https://www.insee.fr/fr/statistiques/fichier/6793391/IMMFRA23.pdf"
     pourquoi: "Le panorama statistique complet : démographie, emploi, revenus, logement."
 aVerifier:
+  - "Numéro de la décision du Conseil constitutionnel sur la loi immigration : 2023-863 DC ou 2023-853 DC selon les sources. Vérifier sur le site du Conseil."
   - "Contexte politique : le durcissement de 2004 (3 à 5 ans pour le RMI) vient du Gisti, association de juristes. Trouver le texte de loi sur Légifrance et confirmer le gouvernement concerné."
   - "Contexte politique : 35 ou 34 articles censurés ? Les sources divergent (31 pour la procédure, plus 4 partiellement sur le fond). Lire la décision 2023-863 DC du 25 janvier 2024."
   - "Contexte politique : vérifier que la proposition de loi référendaire jugée le 11 avril 2024 (décision 2024-6 RIP) émanait bien des Républicains, et citer la décision elle-même."
