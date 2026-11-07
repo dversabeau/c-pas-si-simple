@@ -1,0 +1,15 @@
+---
+// Page de l'éditeur, identique à celle de Keystatic, avec en plus l'habillage aux couleurs du site.
+// Elle n'est déclarée qu'en local (voir astro.config.mjs) : elle n'existe pas sur le site publié.
+import { Keystatic } from './keystatic-page.js';
+import theme from '../src/styles/keystatic-theme.css?raw';
+
+export const prerender = false;
+
+const polices =
+  'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap';
+const habillage = `<meta charset="utf-8"><title>Éditeur · C pas si simple</title><link rel="stylesheet" href="${polices}"><style id="theme-editeur">${theme}</style>`;
+---
+
+<Fragment set:html={habillage} />
+<Keystatic client:only="react" />

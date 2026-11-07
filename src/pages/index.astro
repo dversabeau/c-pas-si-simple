@@ -1,0 +1,73 @@
+---
+import Base from '../layouts/Base.astro';
+import { getFiches, THEMES, texteBrut } from '../lib';
+
+const fiches = await getFiches();
+// Index de recherche : titre, variantes, réponse courte, objections.
+const index = fiches.map((f) => ({
+  slug: f.id,
+  titre: f.data.titre,
+  variantes: f.data.variantes,
+  resume: texteBrut(f.data.enUnePhrase),
+  objections: f.data.objections.map((o) => o.objection),
+  theme: THEMES[f.data.theme],
+  themeId: f.data.theme,
+  statut: f.data.statut,
+}));
+const themesUtilises = [...new Set(fiches.map((f) => f.data.theme))];
+---
+<Base title="C pas si simple">
+  <section class="hero">
+    <h1>Tapez l'idée reçue que vous venez d'entendre.</h1>
+    <p>Arguments clés, chiffres vérifiés, réponses aux objections. Pour la France.</p>
+    <div class="search">
+      <input id="q" type="search" placeholder="ex. « les jeunes veulent plus bosser »" autocomplete="off" autofocus aria-label="Rechercher une idée reçue" />
+    </div>
+    <ul class="results" id="results"></ul>
+  </section>
+
+  <h2>Par thème</h2>
+  <div class="themes">
+    {themesUtilises.map((t) => <a class={`t-${t}`} href={`/theme/${t}`}>{THEMES[t]}</a>)}
+  </div>
+
+  <script type="application/json" id="index" set:html={JSON.stringify(index)} />
+  <script>
+    import Fuse from 'fuse.js';
+    type Item = { slug: string; titre: string; resume: string; theme: string; themeId: string; statut: string };
+    const data: Item[] = JSON.parse(document.getElementById('index')!.textContent!);
+    const fuse = new Fuse(data, {
+      keys: [
+        { name: 'titre', weight: 3 },
+        { name: 'variantes', weight: 3 },
+        { name: 'objections', weight: 1.5 },
+        { name: 'resume', weight: 1 },
+      ],
+      threshold: 0.45,
+      ignoreLocation: true,
+      ignoreDiacritics: true,
+      minMatchCharLength: 2,
+    });
+    const input = document.getElementById('q') as HTMLInputElement;
+    const list = document.getElementById('results')!;
+    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+    function render(items: Item[], query: string) {
+      if (!items.length) {
+        list.innerHTML = query ? `<li class="empty">Pas encore de fiche pour ça.</li>` : '';
+        return;
+      }
+      list.innerHTML = items.map((f) => `
+        <li><a href="/fiches/${f.slug}">
+          <div><span class="tag t-${f.themeId}">${esc(f.theme)}</span>${f.statut !== 'publiee' ? `<span class="tag ${f.statut}">${f.statut}</span>` : ''}</div>
+          <div class="t">« ${esc(f.titre)} »</div>
+          <div class="s">${esc(f.resume)}</div>
+        </a></li>`).join('');
+    }
+    input.addEventListener('input', () => {
+      const q = input.value.trim();
+      render(q ? fuse.search(q, { limit: 8 }).map((r) => r.item) : data, q);
+    });
+    render(data, '');
+  </script>
+</Base>

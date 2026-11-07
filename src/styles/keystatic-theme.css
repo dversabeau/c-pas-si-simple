@@ -1,0 +1,101 @@
+/*
+ * Habillage de l'éditeur Keystatic aux couleurs du site.
+ * Injecté seulement en local, sur les pages /keystatic (voir astro.config.mjs).
+ * Keystatic construit tout son thème à partir de deux gammes : « slate » (les neutres)
+ * et « indigo » (l'accent). On remplace ces gammes par les tons chauds du site.
+ */
+
+/* Clair : fond crème, encre presque noire, accent terre cuite */
+.kui-scheme--light.kui-scheme--light,
+.kui-scheme--auto.kui-scheme--auto {
+  --kui-color-scale-slate1: #fffdf9;
+  --kui-color-scale-slate2: #faf8f4;
+  --kui-color-scale-slate3: #f3efe8;
+  --kui-color-scale-slate4: #ebe5db;
+  --kui-color-scale-slate5: #e4ded3;
+  --kui-color-scale-slate6: #d8d0c3;
+  --kui-color-scale-slate7: #c4bbad;
+  --kui-color-scale-slate8: #a59d92;
+  --kui-color-scale-slate9: #6b655c;
+  --kui-color-scale-slate10: #3a352f;
+  --kui-color-scale-slate11: #1d1b18;
+
+  --kui-color-scale-indigo1: #fdf6f4;
+  --kui-color-scale-indigo2: #fbece8;
+  --kui-color-scale-indigo3: #f6e4de;
+  --kui-color-scale-indigo4: #f0d3ca;
+  --kui-color-scale-indigo5: #e8bfb2;
+  --kui-color-scale-indigo6: #dda594;
+  --kui-color-scale-indigo7: #cf8770;
+  --kui-color-scale-indigo8: #c26a51;
+  --kui-color-scale-indigo9: #b5462f;
+  --kui-color-scale-indigo10: #a23d28;
+  --kui-color-scale-indigo11: #8f3522;
+}
+
+/* Sombre : brun très foncé, texte crème, accent corail */
+.kui-scheme--dark.kui-scheme--dark {
+  --kui-color-scale-slate1: #171513;
+  --kui-color-scale-slate2: #1c1a17;
+  --kui-color-scale-slate3: #211e1b;
+  --kui-color-scale-slate4: #29251f;
+  --kui-color-scale-slate5: #312c26;
+  --kui-color-scale-slate6: #36312b;
+  --kui-color-scale-slate7: #48413a;
+  --kui-color-scale-slate8: #5f574e;
+  --kui-color-scale-slate9: #a59d92;
+  --kui-color-scale-slate10: #d6cfc4;
+  --kui-color-scale-slate11: #f1ece4;
+
+  --kui-color-scale-indigo1: #1f1613;
+  --kui-color-scale-indigo2: #2a1a15;
+  --kui-color-scale-indigo3: #3a231d;
+  --kui-color-scale-indigo4: #4a2a21;
+  --kui-color-scale-indigo5: #5a3226;
+  --kui-color-scale-indigo6: #6e3d2d;
+  --kui-color-scale-indigo7: #8a4b36;
+  --kui-color-scale-indigo8: #a8553c;
+  --kui-color-scale-indigo9: #c4553b;
+  --kui-color-scale-indigo10: #d9694f;
+  --kui-color-scale-indigo11: #f0a08a;
+}
+@media (prefers-color-scheme: dark) {
+  .kui-scheme--auto.kui-scheme--auto {
+    --kui-color-scale-slate1: #171513;
+    --kui-color-scale-slate2: #1c1a17;
+    --kui-color-scale-slate3: #211e1b;
+    --kui-color-scale-slate4: #29251f;
+    --kui-color-scale-slate5: #312c26;
+    --kui-color-scale-slate6: #36312b;
+    --kui-color-scale-slate7: #48413a;
+    --kui-color-scale-slate8: #5f574e;
+    --kui-color-scale-slate9: #a59d92;
+    --kui-color-scale-slate10: #d6cfc4;
+    --kui-color-scale-slate11: #f1ece4;
+
+    --kui-color-scale-indigo1: #1f1613;
+    --kui-color-scale-indigo2: #2a1a15;
+    --kui-color-scale-indigo3: #3a231d;
+    --kui-color-scale-indigo4: #4a2a21;
+    --kui-color-scale-indigo5: #5a3226;
+    --kui-color-scale-indigo6: #6e3d2d;
+    --kui-color-scale-indigo7: #8a4b36;
+    --kui-color-scale-indigo8: #a8553c;
+    --kui-color-scale-indigo9: #c4553b;
+    --kui-color-scale-indigo10: #d9694f;
+    --kui-color-scale-indigo11: #f0a08a;
+  }
+}
+
+/* Typographie et arrondis du site */
+.kui-theme.kui-theme {
+  --kui-typography-font-family-base: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --kui-size-radius-medium: 10px;
+  --kui-size-radius-large: 12px;
+}
+/* Titres de page en Fraunces, comme sur le site (les petits intitulés restent en Inter) */
+.kui-theme h1 {
+  font-family: 'Fraunces', Georgia, serif !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}

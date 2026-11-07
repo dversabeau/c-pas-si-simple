@@ -1,0 +1,239 @@
+---
+import Base from '../../layouts/Base.astro';
+import Graphique from '../../components/Graphique.astro';
+import GraphiqueBarres from '../../components/GraphiqueBarres.astro';
+import { render } from 'astro:content';
+import { getFiches, THEMES, md, texteBrut } from '../../lib';
+
+export async function getStaticPaths() {
+  const fiches = await getFiches();
+  return fiches.map((f) => ({ params: { slug: f.id }, props: { fiche: f, toutes: fiches } }));
+}
+
+const { fiche, toutes } = Astro.props;
+const d = fiche.data;
+const { Content } = await render(fiche);
+const corpsVide = !fiche.body?.trim();
+
+const existantes = new Set(toutes.map((f) => f.id));
+const f = (s: string) => md(s, existantes);
+
+const src = Object.fromEntries(d.sources.map((s) => [s.id, s]));
+const num = Object.fromEntries(d.sources.map((s, i) => [s.id, i + 1]));
+const ref = (ids: string[]) => ids.map((id) => src[id]).filter(Boolean);
+// Prépare un graphique en barres : chaque barre reçoit le libellé et le lien de sa source.
+type Barres = NonNullable<(typeof d.objections)[number]['barres']>;
+const propsBarres = (g: Barres) => ({
+  ...g,
+  barres: g.barres.map((b) => ({
+    ...b,
+    sourceLabel: src[b.source] ? `${src[b.source].auteur}, ${src[b.source].annee}` : b.source,
+    sourceUrl: src[b.source]?.url ?? '#',
+  })),
+});
+const url = new URL(`/fiches/${fiche.id}`, Astro.site).toString();
+
+// Texte prêt à coller dans une conversation : l'accroche, le constat, la source, le lien.
+const copyText = (a: (typeof d.arguments)[number], i: number) =>
+  `${a.chiffre} ${a.titre}\n${texteBrut(a.constat)}\nSource : ${ref(a.sources)
+    .map((s) => `${s.auteur} (${s.annee}) ${s.url}`)
+    .join(' ; ')}\n${url}#arg-${i + 1}`;
+
+// Fiches liées : celles choisies dans la fiche + celles qui renvoient vers celle-ci.
+const choisies = d.liees.filter((id) => existantes.has(id) && id !== fiche.id);
+const retours = toutes
+  .filter((o) => o.id !== fiche.id && !choisies.includes(o.id))
+  .filter((o) => o.data.liees.includes(fiche.id) || JSON.stringify(o.data).includes(`(/fiches/${fiche.id})`) || JSON.stringify(o.data).includes(`[[${fiche.id}`))
+  .map((o) => o.id);
+const liees = [...choisies, ...retours].map((id) => toutes.find((o) => o.id === id)!);
+
+const nonVerifiees = d.sources.filter((s) => !s.verifiee).length;
+const dev = import.meta.env.DEV;
+const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+<Base title={`« ${d.titre} » | C pas si simple`} description={texteBrut(d.enUnePhrase)}>
+  <article>
+    <div style="margin-top:24px">
+      <span class={`tag t-${d.theme}`}>{THEMES[d.theme]}</span>
+      {d.statut !== 'publiee' && <span class={`tag ${d.statut}`}>{d.statut}</span>}
+    </div>
+    <h1>« {d.titre} »</h1>
+    <p class="maj">
+      Mis à jour le {date} · {d.sources.length} sources
+      {dev && <> · <a class="modifier" href={`/keystatic/collection/fiches/item/${fiche.id}`}>Modifier cette fiche</a></>}
+    </p>
+
+    {dev && (nonVerifiees > 0 || d.aVerifier.length > 0) && (
+      <details class="notice">
+        <summary>
+          Relecture : {nonVerifiees} source(s) sur {d.sources.length} à vérifier
+          {d.aVerifier.length > 0 && `, ${d.aVerifier.length} point(s) à contrôler`}
+        </summary>
+        {d.aVerifier.length > 0 && <ul>{d.aVerifier.map((p) => <li set:html={f(p)} />)}</ul>}
+      </details>
+    )}
+
+    {d.objections.length > 0 && (
+      <>
+        <h2>Arguments récurrents</h2>
+        {d.objections.map((o) => (
+          <details class="card objection">
+            <summary>« {o.objection} »</summary>
+            <p set:html={f(o.reponse)} />
+            {o.barres && <GraphiqueBarres {...propsBarres(o.barres)} />}
+            {o.sources.length > 0 && (
+              <div class="refs">
+                {ref(o.sources).map((s) => <span>[{num[s.id]}] <a href={s.url} target="_blank" rel="noopener">{s.auteur}, {s.annee}</a> </span>)}
+              </div>
+            )}
+          </details>
+        ))}
+      </>
+    )}
+
+    <h2>En résumé</h2>
+    <p class="oneliner" set:html={f(d.enUnePhrase)} />
+
+    <h2>Quelques chiffres</h2>
+    <div class="args">
+      {d.arguments.map((a, i) => (
+        <details class="arg" id={`arg-${i + 1}`}>
+          <summary>
+            <span class="chiffre">{a.chiffre}</span>
+            <span class="accroche">{a.titre}</span>
+            <span class="plus" aria-hidden="true"></span>
+          </summary>
+          <div class="arg-body">
+            <div class="bloc">
+              <h4>Le constat</h4>
+              <p set:html={f(a.constat)} />
+            </div>
+            {a.graphique && src[a.graphique.source] && (
+              <Graphique
+                {...a.graphique}
+                sourceLabel={`${src[a.graphique.source].auteur}, ${src[a.graphique.source].annee}`}
+                sourceUrl={src[a.graphique.source].url}
+              />
+            )}
+            {a.barres && <GraphiqueBarres {...propsBarres(a.barres)} />}
+            <div class="bloc">
+              <h4>Ce que ça montre</h4>
+              <p set:html={f(a.montre)} />
+            </div>
+            <div class="arg-foot">
+              <span class="refs">
+                {ref(a.sources).map((s) => (
+                  <span>[{num[s.id]}] <a href={s.url} target="_blank" rel="noopener">{s.auteur}, {s.annee}</a> </span>
+                ))}
+              </span>
+              <span class="actions">
+                <button class="copy" type="button" data-copy={`${url}#arg-${i + 1}`}>Lien</button>
+                <button class="copy" type="button" data-copy={copyText(a, i)}>Copier l'argument</button>
+              </span>
+            </div>
+          </div>
+        </details>
+      ))}
+    </div>
+
+    {d.contexte.length > 0 && (
+      <>
+        <h2>Le contexte politique</h2>
+        <ol class="frise">
+          {d.contexte.map((c) => (
+            <li>
+              <div class="frise-date">{c.date}</div>
+              <div class="frise-corps">
+                <div class="frise-acteur">{c.acteur}</div>
+                <p set:html={f(c.fait)} />
+                {c.effet && <p class="frise-effet" set:html={f(c.effet)} />}
+                <span class="refs">
+                  {ref(c.sources).map((s) => <span>[{num[s.id]}] <a href={s.url} target="_blank" rel="noopener">{s.auteur}, {s.annee}</a> </span>)}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </>
+    )}
+
+    {liees.length > 0 && (
+      <>
+        <h2>Pour aller plus loin</h2>
+        <ul class="results liees">
+          {liees.map((o) => (
+            <li><a href={`/fiches/${o.id}`}>
+              <div><span class={`tag t-${o.data.theme}`}>{THEMES[o.data.theme]}</span>{o.data.statut !== 'publiee' && <span class={`tag ${o.data.statut}`}>{o.data.statut}</span>}</div>
+              <div class="t">« {o.data.titre} »</div>
+            </a></li>
+          ))}
+        </ul>
+      </>
+    )}
+
+    <div class="annexes">
+      {!corpsVide && (
+        <details class="annexe">
+          <summary>Comprendre le débat</summary>
+          <div class="prose"><Content /></div>
+        </details>
+      )}
+
+      {d.approfondir.length > 0 && (
+        <details class="annexe">
+          <summary>Lectures pour approfondir <span class="hint">{d.approfondir.length} références</span></summary>
+          <ul class="lectures">
+            {d.approfondir.map((l) => (
+              <li>
+                {l.url ? <a href={l.url} target="_blank" rel="noopener">{l.titre}</a> : <em>{l.titre}</em>}, {l.auteur}, {l.annee}.
+                <span class="pourquoi" set:html={f(l.pourquoi)} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {d.concepts.length > 0 && (
+        <details class="annexe">
+          <summary>Lexique <span class="hint">{d.concepts.length} notions expliquées</span></summary>
+          <dl class="concepts">
+            {d.concepts.map((c) => (<><dt>{c.terme}</dt><dd set:html={f(c.definition)} /></>))}
+          </dl>
+        </details>
+      )}
+
+      <details class="annexe">
+        <summary>Sources <span class="hint">{d.sources.length} références</span></summary>
+        <ol class="sources">
+          {d.sources.map((s) => (
+            <li>
+              {s.auteur}, <a href={s.url} target="_blank" rel="noopener">{s.titre}</a>, {s.annee}.
+              {dev && !s.verifiee && <span class="unverified"> À vérifier</span>}
+            </li>
+          ))}
+        </ol>
+      </details>
+    </div>
+
+    <button class="copy" type="button" data-copy={url} style="margin-top:18px">Copier le lien de la fiche</button>
+  </article>
+
+  <script>
+    const toast = document.getElementById('toast')!;
+    document.querySelectorAll<HTMLButtonElement>('button.copy').forEach((b) =>
+      b.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(b.dataset.copy!); toast.textContent = 'Copié'; }
+        catch { toast.textContent = 'Copie impossible'; }
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+      }),
+    );
+    // Lien direct vers un argument (#arg-2) : on l'ouvre et on le montre.
+    function ouvrirDepuisAncre() {
+      const cible = location.hash && document.querySelector<HTMLDetailsElement>(`details.arg${location.hash}`);
+      if (cible) { cible.open = true; cible.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+    }
+    ouvrirDepuisAncre();
+    window.addEventListener('hashchange', ouvrirDepuisAncre);
+  </script>
+</Base>

@@ -1,0 +1,25 @@
+---
+import '../styles/global.css';
+interface Props { title: string; description?: string }
+const { title, description = 'Des fiches sourcées pour répondre aux idées reçues sur les faits de société en France.' } = Astro.props;
+---
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" />
+  </head>
+  <body>
+    <header class="site"><div class="wrap"><a class="logo" href="/">C pas si <span>simple</span></a></div></header>
+    <main class="wrap"><slot /></main>
+    <footer class="site"><div class="wrap">
+      Fiches factuelles, sourcées, sur la France. Chaque chiffre renvoie à sa source primaire.
+      <a href="/methode">Notre méthode</a>
+    </div></footer>
+    <div class="toast" id="toast">Copié</div>
+  </body>
+</html>

@@ -1,0 +1,230 @@
+---
+/**
+ * Graphique en courbes, dessiné dans le navigateur à la largeur réelle du conteneur
+ * (texte lisible sur mobile comme sur ordinateur). Les données viennent d'un CSV
+ * versionné dans src/data/graphiques/ : rien n'est récupéré en direct.
+ */
+interface Serie { colonne: string; libelle: string }
+interface Props {
+  fichier: string;
+  titre: string;
+  unite: string;
+  series: Serie[];
+  reference?: number;
+  referenceLibelle?: string;
+  periodeReference?: [number, number];
+  format?: 'decimal' | 'ecart-pourcent';
+  note?: string;
+  sourceLabel: string;
+  sourceUrl: string;
+  verifie: boolean;
+}
+const { fichier, titre, unite, series, reference, referenceLibelle, periodeReference, format = 'decimal', note, sourceLabel, sourceUrl, verifie } = Astro.props;
+
+const fichiers = import.meta.glob('../data/graphiques/*.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const csv = fichiers[`../data/graphiques/${fichier}.csv`];
+if (!csv) throw new Error(`Graphique introuvable : src/data/graphiques/${fichier}.csv`);
+
+const [entete, ...lignes] = csv.trim().split(/\r?\n/).map((l) => l.split(','));
+const idx = (c: string) => {
+  const i = entete.indexOf(c);
+  if (i < 0) throw new Error(`Colonne « ${c} » absente de ${fichier}.csv`);
+  return i;
+};
+const donnees = {
+  annees: lignes.map((l) => Number(l[0])),
+  series: series.map((s) => ({
+    libelle: s.libelle,
+    valeurs: lignes.map((l) => (l[idx(s.colonne)] === '' ? null : Number(l[idx(s.colonne)]))),
+  })),
+  reference: reference ?? null,
+  referenceLibelle: referenceLibelle ?? null,
+  periode: periodeReference ?? null,
+  format,
+  unite,
+};
+const fmt = (v: number | null) => {
+  if (v == null) return '–';
+  if (format === 'ecart-pourcent') return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v))} %`;
+  return v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+const telechargement = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+---
+<figure class="graph" data-graph={JSON.stringify(donnees)}>
+  <figcaption>
+    <span class="graph-titre">{titre}</span>
+    {!verifie && <span class="unverified"> Données à vérifier</span>}
+  </figcaption>
+  {series.length > 1 && (
+    <div class="graph-legende">
+      {series.map((s, i) => <span><i class={`s${i + 1}`}></i>{s.libelle}</span>)}
+    </div>
+  )}
+  <div class="graph-zone" role="img" aria-label={`${titre}. ${unite}. Données détaillées dans le tableau ci-dessous.`}></div>
+  <p class="graph-source">
+    {unite}. Source : <a href={sourceUrl} target="_blank" rel="noopener">{sourceLabel}</a>.{note ? ` ${note}` : ''}
+  </p>
+  <details class="graph-table">
+    <summary>Voir les données</summary>
+    <a class="graph-dl" href={telechargement} download={`${fichier}.csv`}>Télécharger en CSV</a>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Année</th>{series.map((s) => <th>{s.libelle}</th>)}</tr></thead>
+        <tbody>
+          {donnees.annees.map((a, r) => (
+            <tr><td>{a}</td>{donnees.series.map((s) => <td>{fmt(s.valeurs[r])}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>
+
+<script>
+  type Donnees = {
+    annees: number[];
+    series: { libelle: string; valeurs: (number | null)[] }[];
+    reference: number | null;
+    referenceLibelle: string | null;
+    periode: [number, number] | null;
+    format: 'decimal' | 'ecart-pourcent';
+    unite: string;
+  };
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag: string, attrs: Record<string, string | number>, parent?: Element) => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+    parent?.appendChild(e);
+    return e;
+  };
+  // Pas de graduation « rond » donnant 4 à 6 lignes de grille.
+  const pasRond = (etendue: number) =>
+    [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 500].find((p) => etendue / p <= 6) ?? 1000;
+
+  function dessiner(fig: HTMLElement) {
+    const d: Donnees = JSON.parse(fig.dataset.graph!);
+    const pct = d.format === 'ecart-pourcent';
+    const signe = (v: number) => (v > 0 ? '+' : v < 0 ? '−' : '');
+    const fmt = (v: number) =>
+      pct ? `${signe(v)}${Math.abs(Math.round(v))} %` : v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtAxe = (v: number) => (pct ? `${signe(v)}${Math.abs(v)} %` : v.toLocaleString('fr-FR'));
+    const zone = fig.querySelector<HTMLElement>('.graph-zone')!;
+    const W = zone.clientWidth;
+    if (!W) return;
+    const H = Math.max(220, Math.min(320, W * 0.55));
+    const etroit = W < 480;
+    const seule = d.series.length === 1;
+    const m = { t: 12, r: seule ? 52 : etroit ? 12 : 16, b: 26, l: pct ? 48 : 36 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+
+    const toutes = d.series.flatMap((s) => s.valeurs).filter((v): v is number => v != null);
+    if (d.reference != null) toutes.push(d.reference);
+    const pas = pasRond(Math.max(...toutes) - Math.min(...toutes));
+    const yMin = Math.floor(Math.min(...toutes) / pas) * pas;
+    const yMax = Math.ceil(Math.max(...toutes) / pas) * pas;
+    const a0 = d.annees[0], a1 = d.annees[d.annees.length - 1];
+    const x = (a: number) => m.l + ((a - a0) / (a1 - a0)) * iw;
+    const y = (v: number) => m.t + (1 - (v - yMin) / (yMax - yMin)) * ih;
+
+    zone.innerHTML = '';
+    const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` }, zone);
+
+    // Bande grise : la période qui sert de référence
+    if (d.periode) {
+      const [p0, p1] = d.periode;
+      el('rect', { x: x(p0), y: m.t, width: x(p1) - x(p0), height: ih, class: 'g-band' }, svg);
+      const t = el('text', { x: x(p0) + 6, y: m.t + 14, class: 'g-band-label' }, svg);
+      t.textContent = `Référence ${p0}-${p1}`;
+    }
+    // Grille et axe vertical (discrets)
+    for (let v = yMin; v <= yMax + 1e-9; v += pas) {
+      const vv = Math.round(v * 1000) / 1000;
+      el('line', { x1: m.l, x2: W - m.r, y1: y(vv), y2: y(vv), class: 'g-grid' }, svg);
+      const t = el('text', { x: m.l - 6, y: y(vv) + 4, class: 'g-axis', 'text-anchor': 'end' }, svg);
+      t.textContent = fmtAxe(vv);
+    }
+    // Axe horizontal : une graduation par décennie
+    const pasA = etroit ? 20 : 10;
+    for (let a = Math.ceil(a0 / pasA) * pasA; a <= a1; a += pasA) {
+      const t = el('text', { x: x(a), y: H - 6, class: 'g-axis', 'text-anchor': 'middle' }, svg);
+      t.textContent = String(a);
+    }
+    // Ligne de référence
+    if (d.reference != null) {
+      el('line', { x1: m.l, x2: W - m.r, y1: y(d.reference), y2: y(d.reference), class: 'g-ref' }, svg);
+      if (d.referenceLibelle && !etroit) {
+        const t = el('text', { x: W - m.r, y: y(d.reference) + 15, class: 'g-ref-label', 'text-anchor': 'end' }, svg);
+        t.textContent = d.referenceLibelle;
+      }
+    }
+    // Courbes
+    d.series.forEach((s, i) => {
+      let p = '';
+      s.valeurs.forEach((v, k) => {
+        if (v == null) return;
+        p += `${p ? 'L' : 'M'}${x(d.annees[k]).toFixed(1)},${y(v).toFixed(1)}`;
+      });
+      el('path', { d: p, class: `g-line s${i + 1}` }, svg);
+    });
+    // Courbe unique : sa dernière valeur écrite au bout, avec un point
+    if (seule) {
+      const vals = d.series[0].valeurs;
+      let k = vals.length - 1;
+      while (k > 0 && vals[k] == null) k--;
+      const v = vals[k]!;
+      el('circle', { cx: x(d.annees[k]), cy: y(v), r: 4.5, class: 'g-dot s1' }, svg);
+      const t = el('text', { x: x(d.annees[k]) + 9, y: y(v) + 5, class: 'g-end' }, svg);
+      t.textContent = fmt(v);
+    }
+
+    // Survol : réticule + infobulle
+    const croix = el('line', { y1: m.t, y2: m.t + ih, class: 'g-cross', visibility: 'hidden' }, svg);
+    const points = d.series.map((_, i) => el('circle', { r: 4.5, class: `g-dot s${i + 1}`, visibility: 'hidden' }, svg));
+    let bulle = fig.querySelector<HTMLElement>('.g-tip');
+    if (!bulle) {
+      bulle = document.createElement('div');
+      bulle.className = 'g-tip';
+      zone.style.position = 'relative';
+    }
+    zone.appendChild(bulle);
+    const cible = el('rect', { x: m.l, y: 0, width: iw, height: H, fill: 'transparent' }, svg);
+
+    const montrer = (clientX: number) => {
+      const r = svg.getBoundingClientRect();
+      const a = Math.round(a0 + ((clientX - r.left - m.l) / iw) * (a1 - a0));
+      const k = Math.max(0, Math.min(d.annees.length - 1, d.annees.indexOf(Math.max(a0, Math.min(a1, a)))));
+      const ax = x(d.annees[k]);
+      croix.setAttribute('x1', String(ax));
+      croix.setAttribute('x2', String(ax));
+      croix.setAttribute('visibility', 'visible');
+      d.series.forEach((s, i) => {
+        const v = s.valeurs[k];
+        points[i].setAttribute('visibility', v == null ? 'hidden' : 'visible');
+        if (v != null) { points[i].setAttribute('cx', String(ax)); points[i].setAttribute('cy', String(y(v))); }
+      });
+      bulle!.innerHTML = `<strong>${d.annees[k]}</strong>` + d.series
+        .map((s, i) => `<div><i class="s${i + 1}"></i>${s.libelle} <b>${s.valeurs[k] == null ? '–' : fmt(s.valeurs[k]!)}</b></div>`)
+        .join('');
+      bulle!.style.display = 'block';
+      const bw = bulle!.offsetWidth;
+      bulle!.style.left = `${Math.min(Math.max(ax - bw / 2, 0), W - bw)}px`;
+      bulle!.style.top = `${m.t}px`;
+    };
+    const cacher = () => {
+      croix.setAttribute('visibility', 'hidden');
+      points.forEach((p) => p.setAttribute('visibility', 'hidden'));
+      bulle!.style.display = 'none';
+    };
+    cible.addEventListener('pointermove', (e) => montrer((e as PointerEvent).clientX));
+    cible.addEventListener('pointerdown', (e) => montrer((e as PointerEvent).clientX));
+    cible.addEventListener('pointerleave', cacher);
+  }
+
+  document.querySelectorAll<HTMLElement>('figure.graph').forEach((fig) => {
+    const zone = fig.querySelector<HTMLElement>('.graph-zone')!;
+    let largeur = 0;
+    new ResizeObserver(() => {
+      if (zone.clientWidth !== largeur) { largeur = zone.clientWidth; dessiner(fig); }
+    }).observe(zone);
+  });
+</script>

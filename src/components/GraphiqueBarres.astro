@@ -1,0 +1,71 @@
+---
+/**
+ * Barres horizontales en HTML/CSS : lisibles à toutes les largeurs, valeurs écrites
+ * en clair sur chaque barre (pas besoin de survol). Une barre peut être une fourchette.
+ */
+interface Barre {
+  libelle: string;
+  valeur: number;
+  max?: number;
+  dont?: { valeur: number; libelle: string };
+  detail?: string;
+  sourceLabel: string;
+  sourceUrl: string;
+  accent: boolean;
+}
+interface Props {
+  titre: string;
+  unite: '%' | 'Md€';
+  barres: Barre[];
+  note?: string;
+  verifie: boolean;
+}
+const { titre, unite, barres, note, verifie } = Astro.props;
+
+const echelle = Math.max(...barres.map((b) => b.max ?? b.valeur));
+const nombre = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+const texte = (b: Barre) =>
+  b.max != null ? `${nombre(b.valeur)} à ${nombre(b.max)} ${unite}` : `${nombre(b.valeur)} ${unite}`;
+// La plus longue barre occupe 72 % de la piste : il reste la place d'écrire la valeur au bout.
+const pct = (v: number) => `${((v / echelle) * 72).toFixed(2)}%`;
+// Sources uniques, dans l'ordre d'apparition
+const sources = [...new Map(barres.map((b) => [b.sourceUrl, b])).values()];
+---
+<figure class="barres">
+  <figcaption>
+    <span class="graph-titre">{titre}</span>
+    {!verifie && <span class="unverified"> Données à vérifier</span>}
+  </figcaption>
+  <ul>
+    {barres.map((b) => (
+      <li class={b.accent ? 'accent' : ''}>
+        <div class="b-lib">
+          <span>{b.libelle}</span>
+          {b.detail && <small>{b.detail}</small>}
+        </div>
+        <div class="b-piste" role="img" aria-label={`${b.libelle} : ${texte(b)}${b.dont ? `, dont ${nombre(b.dont.valeur)} ${unite} ${b.dont.libelle}` : ''}`}>
+          {b.dont ? (
+            <>
+              <span class="b-plein b-dont" style={`width:${pct(b.dont.valeur)}`}></span>
+              <span class="b-plein b-reste" style={`width:${pct(b.valeur - b.dont.valeur)}`}></span>
+            </>
+          ) : (
+            <span class="b-plein" style={`width:${pct(b.valeur)}`}></span>
+          )}
+          {b.max != null && <span class="b-fourchette" style={`width:${pct(b.max - b.valeur)}`}></span>}
+          <span class="b-val">{texte(b)}</span>
+        </div>
+        {b.dont && (
+          <div class="b-dont-legende">
+            <i></i>dont ≈ {nombre(b.dont.valeur)} {unite} : {b.dont.libelle}
+          </div>
+        )}
+      </li>
+    ))}
+  </ul>
+  <p class="graph-source">
+    Sources : {sources.map((s, i) => (
+      <>{i > 0 && ' ; '}<a href={s.sourceUrl} target="_blank" rel="noopener">{s.sourceLabel}</a></>
+    ))}.{note ? ` ${note}` : ''}
+  </p>
+</figure>

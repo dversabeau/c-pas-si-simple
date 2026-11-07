@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getFiches, THEMES, texteBrut } from '../../lib';
+
+export async function getStaticPaths() {
+  const fiches = await getFiches();
+  const themes = [...new Set(fiches.map((f) => f.data.theme))];
+  return themes.map((theme) => ({
+    params: { theme },
+    props: { fiches: fiches.filter((f) => f.data.theme === theme) },
+  }));
+}
+const { fiches } = Astro.props;
+const { theme } = Astro.params;
+---
+<Base title={`${THEMES[theme]} | C pas si simple`}>
+  <h1>{THEMES[theme]}</h1>
+  <ul class="results">
+    {fiches.map((f) => (
+      <li><a href={`/fiches/${f.id}`}>
+        <div class="t">« {f.data.titre} »</div>
+        <div class="s">{texteBrut(f.data.enUnePhrase)}</div>
+      </a></li>
+    ))}
+  </ul>
+</Base>
