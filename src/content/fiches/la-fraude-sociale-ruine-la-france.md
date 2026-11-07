@@ -172,11 +172,11 @@ objections:
       barres: []
       verifie: false
   - objection: Les fraudes détectées explosent, la preuve que ça empire
-    reponse: >
+    reponse: >-
       Les montants détectés ont bien grimpé, de **1,3 à 2 milliards d'euros**
       entre 2022 et 2024. Normal, les caisses contrôlent davantage et ciblent
       mieux, donc elles trouvent plus. Les **taux de fraude**, eux, n'ont
-      quasiment pas bougé, et la hausse des montants estimés tient à 90 % à
+      **quasiment **pas bougé, et la hausse des montants estimés tient à 90 % à
       l'augmentation des sommes versées et à un périmètre d'évaluation élargi.
     sources:
       - hcfips2026
@@ -208,7 +208,7 @@ enUnePhrase: >
 arguments:
   - chiffre: 52 %
     titre: >-
-      de la fraude sociale, c'est du travail au noir. Pas vraiment le
+      de la fraude sociale, c'est du "travail au black". Pas vraiment le
       portrait-robot du fraudeur qu'on nous vend
     constat: >
       Dans sa note de janvier 2026, le Haut Conseil du financement de la
@@ -491,8 +491,9 @@ sources:
     url: >-
       https://www.lemondedudroit.fr/social/276-protection-sociale-cotisations/101172-lutte-contre-les-fraudes-sociales-et-fiscales-publication-de-la-loi.html
     type: presse
-    verifiee: false
+    verifiee: true
 ---
+
 ### Pourquoi l'idée est tenace
 
 La fraude sociale préoccupe fortement les Français : selon les sondages cités par le HCFiPS, **trois quarts** pensent que beaucoup de personnes perçoivent des allocations sans y avoir droit, et **plus de 40 %** associent spontanément le mot « fraude » à la Sécurité sociale. Les cas spectaculaires (faux arrêts maladie, fraudes au RSA, centres de santé fictifs) sont très médiatisés, alors que la fraude aux cotisations, plus discrète, l'est beaucoup moins.
@@ -504,5 +505,3 @@ Lutter contre la fraude est légitime et les organismes s'y emploient de plus en
 - **Les secteurs les plus exposés** : plateformes numériques, micro-entrepreneurs, RSA, certains professionnels de santé.
 - **La prévention** plutôt que la seule détection, par exemple le prélèvement des cotisations à la source sur les plateformes.
 - **Le non-recours**, qui prive des personnes pauvres d'aides auxquelles elles ont droit.
-
-> **Attention, interprétation.** Comparer fraude sociale et fraude fiscale est délicat : il n'existe pas d'estimation officielle récente de la fraude fiscale totale. Les ordres de grandeur disponibles sont anciens ou partiels.
