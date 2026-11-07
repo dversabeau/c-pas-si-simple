@@ -19,8 +19,11 @@ interface Props {
   barres: Barre[];
   note?: string;
   verifie: boolean;
+  champ?: string; // chemin du graphique dans la fiche, pour l'édition sur la page (en local)
 }
-const { titre, unite, barres, note, verifie } = Astro.props;
+import CaseEdition from './CaseEdition.astro';
+const { titre, unite, barres, note, verifie, champ } = Astro.props;
+const ed = (cle: string) => (champ ? { 'data-champ': `${champ}.${cle}`, 'data-format': 'texte' } : {});
 
 const echelle = Math.max(...barres.map((b) => b.max ?? b.valeur));
 const nombre = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
@@ -33,15 +36,16 @@ const sources = [...new Map(barres.map((b) => [b.sourceUrl, b])).values()];
 ---
 <figure class="barres">
   <figcaption>
-    <span class="graph-titre">{titre}</span>
+    <span class="graph-titre" {...ed("titre")}>{titre}</span>
     {!verifie && <span class="unverified"> Données à vérifier</span>}
+    <CaseEdition chemin={champ && `${champ}.verifie`} coche={verifie} libelle="Données vérifiées" />
   </figcaption>
   <ul>
-    {barres.map((b) => (
+    {barres.map((b, k) => (
       <li class={b.accent ? 'accent' : ''}>
         <div class="b-lib">
-          <span>{b.libelle}</span>
-          {b.detail && <small>{b.detail}</small>}
+          <span {...ed(`barres.${k}.libelle`)}>{b.libelle}</span>
+          {b.detail && <small {...ed(`barres.${k}.detail`)}>{b.detail}</small>}
         </div>
         <div class="b-piste" role="img" aria-label={`${b.libelle} : ${texte(b)}${b.dont ? `, dont ${nombre(b.dont.valeur)} ${unite} ${b.dont.libelle}` : ''}`}>
           {b.dont ? (
@@ -66,6 +70,6 @@ const sources = [...new Map(barres.map((b) => [b.sourceUrl, b])).values()];
   <p class="graph-source">
     Sources : {sources.map((s, i) => (
       <>{i > 0 && ' ; '}<a href={s.sourceUrl} target="_blank" rel="noopener">{s.sourceLabel}</a></>
-    ))}.{note ? ` ${note}` : ''}
+    ))}.{note && <> <span {...ed("note")}>{note}</span></>}
   </p>
 </figure>

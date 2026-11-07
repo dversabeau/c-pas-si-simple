@@ -16,6 +16,11 @@ const { fiche } = Astro.props;
       <button type="button" data-cmd="bold" title="Gras (Ctrl+B)"><b>G</b></button>
       <button type="button" data-cmd="italic" title="Italique (Ctrl+I)"><i>I</i></button>
       <button type="button" data-cmd="lien" title="Lien (Ctrl+K)">Lien</button>
+      <span class="edition-bloc">
+        <button type="button" data-cmd="titre" title="Intertitre (Comprendre le débat)">Titre</button>
+        <button type="button" data-cmd="liste" title="Liste à puces (Comprendre le débat)">Liste</button>
+        <button type="button" data-cmd="citation" title="Encadré (Comprendre le débat)">Encadré</button>
+      </span>
     </span>
     <span class="edition-actions">
       <button type="button" class="edition-annuler">Annuler</button>
@@ -56,6 +61,18 @@ const { fiche } = Astro.props;
   body.en-edition [data-champ].modifie { outline-style: solid; }
   body.en-edition { padding-bottom: 90px; }
   .lien-fiche-absent { text-decoration: underline dotted var(--muted); }
+  .edition-bloc { display: none; gap: 6px; }
+  .edition-barre.dans-bloc .edition-bloc { display: inline-flex; }
+
+  /* Cases de validation : visibles seulement en mode édition */
+  .edition-coche { display: none; }
+  body.en-edition .edition-coche {
+    display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;
+    font-size: .82rem; font-weight: 600; color: var(--ok); cursor: pointer;
+    padding: 2px 8px; border-radius: 99px; background: var(--ok-soft);
+  }
+  body.en-edition .edition-coche.modifie { outline: 2px solid var(--ok); }
+  body.en-edition .edition-coche input { accent-color: var(--ok); margin: 0; }
 </style>
 
 <script>
@@ -86,16 +103,41 @@ const { fiche } = Astro.props;
     if (tag === 'DIV' || tag === 'P') return `\n\n${dedans}`;
     return dedans;
   }
+  // Texte libre (« Comprendre le débat ») : intertitres, listes, encadrés, paragraphes.
+  const enLigne = (n: Node) =>
+    [...n.childNodes].map((c) => (c instanceof HTMLElement && (c.tagName === 'P' || c.tagName === 'DIV') ? enLigne(c) : versMarkdown(c))).join('').replace(/\s*\n+\s*/g, ' ').trim();
+  function blocVersMarkdown(el: Element): string {
+    const blocs: string[] = [];
+    for (const n of el.childNodes) {
+      if (n.nodeType === Node.TEXT_NODE) { const t = (n.textContent ?? '').trim(); if (t) blocs.push(t); continue; }
+      if (!(n instanceof HTMLElement)) continue;
+      const tag = n.tagName;
+      if (/^H[1-6]$/.test(tag)) blocs.push(`${'#'.repeat(Number(tag[1]))} ${enLigne(n)}`);
+      else if (tag === 'UL') blocs.push([...n.children].map((li) => `- ${enLigne(li)}`).join('\n'));
+      else if (tag === 'OL') blocs.push([...n.children].map((li, i) => `${i + 1}. ${enLigne(li)}`).join('\n'));
+      else if (tag === 'BLOCKQUOTE') blocs.push(blocVersMarkdown(n).split('\n').map((l) => (l ? `> ${l}` : '>')).join('\n'));
+      else if (tag === 'HR') blocs.push('---');
+      else { const t = enLigne(n); if (t) blocs.push(t); }
+    }
+    return blocs.filter(Boolean).join('\n\n');
+  }
+
   const valeurDe = (el: HTMLElement) =>
     el.dataset.format === 'texte'
       ? (el.textContent ?? '').replace(/\s+/g, ' ').trim()
-      : versMarkdown(el).replace(/\*\*\*\*/g, '').replace(/\n{3,}/g, '\n\n').trim();
+      : el.dataset.format === 'bloc'
+        // L'affichage transforme les apostrophes droites en apostrophes courbes : on les remet droites.
+        ? blocVersMarkdown(el).replace(/\*\*\*\*/g, '').replace(/’/g, "'")
+        : versMarkdown(el).replace(/\*\*\*\*/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
   // ---------- Suivi des modifications ----------
+  const cases = () => [...document.querySelectorAll<HTMLInputElement>('input[data-coche]')];
+  const casesModifiees = () => cases().filter((c) => c.checked !== c.defaultChecked);
   const modifies = () => champs().filter((el) => el.innerHTML !== originaux.get(el));
   function majEtat() {
-    const n = modifies().length;
+    const n = modifies().length + casesModifiees().length;
     champs().forEach((el) => el.classList.toggle('modifie', el.innerHTML !== originaux.get(el)));
+    cases().forEach((c) => c.closest('label')?.classList.toggle('modifie', c.checked !== c.defaultChecked));
     etat.textContent = n ? `${n} modification${n > 1 ? 's' : ''}` : 'Mode édition';
     enregistrer.disabled = n === 0;
   }
@@ -106,7 +148,7 @@ const { fiche } = Astro.props;
     barre.hidden = false;
     document.querySelectorAll<HTMLDetailsElement>('details.arg, details.objection').forEach((d) => (d.open = true));
     document.querySelectorAll<HTMLDetailsElement>('details.annexe').forEach((d) => {
-      if (d.querySelector('[data-champ]')) d.open = true;
+      if (d.querySelector('[data-champ], [data-coche]')) d.open = true;
     });
     champs().forEach((el) => {
       originaux.set(el, el.innerHTML);
@@ -127,8 +169,9 @@ const { fiche } = Astro.props;
 
   ouvrir.addEventListener('click', entrer);
   annuler.addEventListener('click', () => {
-    if (modifies().length && !confirm('Abandonner les modifications non enregistrées ?')) return;
+    if ((modifies().length || casesModifiees().length) && !confirm('Abandonner les modifications non enregistrées ?')) return;
     champs().forEach((el) => (el.innerHTML = originaux.get(el) ?? el.innerHTML));
+    cases().forEach((c) => (c.checked = c.defaultChecked));
     sortir();
   });
 
@@ -141,12 +184,20 @@ const { fiche } = Astro.props;
   document.addEventListener('input', (e) => {
     if ((e.target as HTMLElement).closest?.('[data-champ]')) majEtat();
   });
+  document.addEventListener('change', (e) => {
+    if ((e.target as HTMLElement).matches?.('input[data-coche]')) majEtat();
+  });
+  // Les outils de mise en page n'apparaissent que dans « Comprendre le débat ».
+  document.addEventListener('focusin', (e) => {
+    const el = (e.target as HTMLElement).closest?.<HTMLElement>('[data-champ]');
+    barre.classList.toggle('dans-bloc', el?.dataset.format === 'bloc');
+  });
   // Entrée : pas de nouvelle ligne dans les champs courts ; Ctrl+K : lien.
   document.addEventListener('keydown', (e) => {
     const el = (e.target as HTMLElement).closest?.<HTMLElement>('[data-champ]');
     if (!el || !document.body.classList.contains('en-edition')) return;
     if (e.key === 'Enter' && el.dataset.format === 'texte') e.preventDefault();
-    if (e.key === 'Enter' && el.dataset.format !== 'texte' && !e.shiftKey) e.preventDefault();
+    if (e.key === 'Enter' && el.dataset.format === 'riche' && !e.shiftKey) e.preventDefault();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); lien(); }
   });
   // Coller : texte brut seulement, pour ne pas importer la mise en forme d'un autre site.
@@ -170,15 +221,23 @@ const { fiche } = Astro.props;
       e.preventDefault(); // garde la sélection dans le texte
       const el = getSelection()?.anchorNode?.parentElement?.closest<HTMLElement>('[data-champ]');
       if (!el || el.dataset.format === 'texte') return;
-      if (b.dataset.cmd === 'lien') lien();
-      else document.execCommand(b.dataset.cmd!);
+      const cmd = b.dataset.cmd!;
+      if (cmd === 'lien') lien();
+      else if (el.dataset.format !== 'bloc' && ['titre', 'liste', 'citation'].includes(cmd)) return;
+      else if (cmd === 'titre') document.execCommand('formatBlock', false, 'H3');
+      else if (cmd === 'liste') document.execCommand('insertUnorderedList');
+      else if (cmd === 'citation') document.execCommand('formatBlock', false, 'BLOCKQUOTE');
+      else document.execCommand(cmd);
       majEtat();
     }),
   );
 
   // ---------- Enregistrement ----------
   enregistrer.addEventListener('click', async () => {
-    const modifications = modifies().map((el) => ({ chemin: el.dataset.champ!, valeur: valeurDe(el) }));
+    const modifications = [
+      ...modifies().map((el) => ({ chemin: el.dataset.champ!, valeur: valeurDe(el) as string | boolean })),
+      ...casesModifiees().map((c) => ({ chemin: c.dataset.coche!, valeur: c.checked })),
+    ];
     enregistrer.disabled = true;
     etat.textContent = 'Enregistrement…';
     try {

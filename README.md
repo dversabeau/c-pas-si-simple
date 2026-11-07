@@ -35,6 +35,8 @@ En local, chaque fiche affiche un bouton **« Modifier sur la page »** en bas �
 - les textes modifiables s'entourent de pointillés : on clique et on écrit ;
 - barre d'outils : gras, italique, lien (Ctrl+B, Ctrl+I, Ctrl+K) ;
 - **Enregistrer** écrit les changements dans le fichier de la fiche et met à jour la date de mise à jour ;
-- seuls les textes sont modifiables ici (titre, résumé, chiffres, arguments, frise, lexique). Les sources, graphiques et statuts se gèrent dans l'éditeur Keystatic.
+- modifiables ici : titre, résumé, chiffres, arguments, frise, lexique, titres et notes des graphiques, libellés des barres, et le texte « Comprendre le débat » (avec intertitres, listes et encadrés) ;
+- en mode édition, des cases permettent de **valider chaque source** et les données de chaque graphique ;
+- les adresses des sources, les valeurs des graphiques et le statut se gèrent dans l'éditeur Keystatic.
 
 Le point d'enregistrement (`editeur/api-edition.ts`) n'existe qu'en local.

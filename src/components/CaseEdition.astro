@@ -1,0 +1,9 @@
+---
+/** Case à cocher de l'édition sur la page (validation d'une source, de données…). N'existe qu'en local. */
+interface Props { chemin?: string; coche: boolean; libelle: string }
+const { chemin, coche, libelle } = Astro.props;
+const dev = import.meta.env.DEV;
+---
+{dev && chemin && (
+  <label class="edition-coche"><input type="checkbox" data-coche={chemin} checked={coche} /> {libelle}</label>
+)}

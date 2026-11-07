@@ -3,6 +3,7 @@ import Base from '../../layouts/Base.astro';
 import Graphique from '../../components/Graphique.astro';
 import GraphiqueBarres from '../../components/GraphiqueBarres.astro';
 import EditionDirecte from '../../components/EditionDirecte.astro';
+import CaseEdition from '../../components/CaseEdition.astro';
 import { render } from 'astro:content';
 import { getFiches, THEMES, md, texteBrut } from '../../lib';
 
@@ -51,7 +52,7 @@ const liees = [...choisies, ...retours].map((id) => toutes.find((o) => o.id === 
 const nonVerifiees = d.sources.filter((s) => !s.verifiee).length;
 const dev = import.meta.env.DEV;
 // Édition sur la page (en local) : chaque texte modifiable porte le chemin de son champ.
-const ch = (chemin: string, format: 'texte' | 'riche' = 'riche') =>
+const ch = (chemin: string, format: 'texte' | 'riche' | 'bloc' = 'riche') =>
   dev ? { 'data-champ': chemin, 'data-format': format } : {};
 const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 ---
@@ -84,7 +85,7 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
           <details class="card objection">
             <summary>« <span {...ch(`objections.${i}.objection`, "texte")}>{o.objection}</span> »</summary>
             <p {...ch(`objections.${i}.reponse`)} set:html={f(o.reponse)} />
-            {o.barres && <GraphiqueBarres {...propsBarres(o.barres)} />}
+            {o.barres && <GraphiqueBarres {...propsBarres(o.barres)} champ={dev ? `objections.${i}.barres` : undefined} />}
             {o.sources.length > 0 && (
               <div class="refs">
                 {ref(o.sources).map((s) => <span>[{num[s.id]}] <a href={s.url} target="_blank" rel="noopener">{s.auteur}, {s.annee}</a> </span>)}
@@ -117,9 +118,10 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
                 {...a.graphique}
                 sourceLabel={`${src[a.graphique.source].auteur}, ${src[a.graphique.source].annee}`}
                 sourceUrl={src[a.graphique.source].url}
+                champ={dev ? `arguments.${i}.graphique` : undefined}
               />
             )}
-            {a.barres && <GraphiqueBarres {...propsBarres(a.barres)} />}
+            {a.barres && <GraphiqueBarres {...propsBarres(a.barres)} champ={dev ? `arguments.${i}.barres` : undefined} />}
             <div class="bloc">
               <h4>Ce que ça montre</h4>
               <p {...ch(`arguments.${i}.montre`)} set:html={f(a.montre)} />
@@ -179,7 +181,7 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
       {!corpsVide && (
         <details class="annexe">
           <summary>Comprendre le débat</summary>
-          <div class="prose"><Content /></div>
+          <div class="prose" {...ch("corps", "bloc")}><Content /></div>
         </details>
       )}
 
@@ -209,10 +211,11 @@ const date = d.miseAJour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'l
       <details class="annexe">
         <summary>Sources <span class="hint">{d.sources.length} références</span></summary>
         <ol class="sources">
-          {d.sources.map((s) => (
+          {d.sources.map((s, i) => (
             <li>
               {s.auteur}, <a href={s.url} target="_blank" rel="noopener">{s.titre}</a>, {s.annee}.
               {dev && !s.verifiee && <span class="unverified"> À vérifier</span>}
+              <CaseEdition chemin={`sources.${i}.verifiee`} coche={s.verifiee} libelle="Vérifiée sur le document original" />
             </li>
           ))}
         </ol>

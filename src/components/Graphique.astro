@@ -6,6 +6,7 @@
  */
 interface Serie { colonne: string; libelle: string }
 interface Props {
+  champ?: string; // chemin du graphique dans la fiche, pour l'édition sur la page (en local)
   fichier: string;
   titre: string;
   unite: string;
@@ -19,7 +20,9 @@ interface Props {
   sourceUrl: string;
   verifie: boolean;
 }
-const { fichier, titre, unite, series, reference, referenceLibelle, periodeReference, format = 'decimal', note, sourceLabel, sourceUrl, verifie } = Astro.props;
+import CaseEdition from './CaseEdition.astro';
+const { fichier, titre, unite, series, reference, referenceLibelle, periodeReference, format = 'decimal', note, sourceLabel, sourceUrl, verifie, champ } = Astro.props;
+const ed = (cle: string) => (champ ? { 'data-champ': `${champ}.${cle}`, 'data-format': 'texte' } : {});
 
 const fichiers = import.meta.glob('../data/graphiques/*.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const csv = fichiers[`../data/graphiques/${fichier}.csv`];
@@ -52,8 +55,9 @@ const telechargement = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
 ---
 <figure class="graph" data-graph={JSON.stringify(donnees)}>
   <figcaption>
-    <span class="graph-titre">{titre}</span>
+    <span class="graph-titre" {...ed("titre")}>{titre}</span>
     {!verifie && <span class="unverified"> Données à vérifier</span>}
+    <CaseEdition chemin={champ && `${champ}.verifie`} coche={verifie} libelle="Données vérifiées" />
   </figcaption>
   {series.length > 1 && (
     <div class="graph-legende">
@@ -62,7 +66,7 @@ const telechargement = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
   )}
   <div class="graph-zone" role="img" aria-label={`${titre}. ${unite}. Données détaillées dans le tableau ci-dessous.`}></div>
   <p class="graph-source">
-    {unite}. Source : <a href={sourceUrl} target="_blank" rel="noopener">{sourceLabel}</a>.{note ? ` ${note}` : ''}
+    {unite}. Source : <a href={sourceUrl} target="_blank" rel="noopener">{sourceLabel}</a>.{note && <> <span {...ed("note")}>{note}</span></>}
   </p>
   <details class="graph-table">
     <summary>Voir les données</summary>

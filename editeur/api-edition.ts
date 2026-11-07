@@ -10,10 +10,29 @@ export const prerender = false;
 const DOSSIER = new URL('../src/content/fiches/', import.meta.url);
 
 // Chemins autorisés, ex. « arguments.2.constat ». Tout le reste est refusé.
-const CHAMPS_MODIFIABLES =
-  /^(titre|enUnePhrase|arguments\.\d+\.(chiffre|titre|constat|montre)|objections\.\d+\.(objection|reponse)|contexte\.\d+\.(date|acteur|fait|effet)|concepts\.\d+\.(terme|definition))$/;
+const CHAMPS_TEXTE = new RegExp(
+  '^(' +
+    [
+      'titre',
+      'enUnePhrase',
+      'arguments\\.\\d+\\.(chiffre|titre|constat|montre)',
+      'arguments\\.\\d+\\.(graphique|barres)\\.(titre|note)',
+      '(arguments|objections)\\.\\d+\\.barres\\.barres\\.\\d+\\.(libelle|detail)',
+      'objections\\.\\d+\\.(objection|reponse)',
+      'objections\\.\\d+\\.barres\\.(titre|note)',
+      'contexte\\.\\d+\\.(date|acteur|fait|effet)',
+      'concepts\\.\\d+\\.(terme|definition)',
+    ].join('|') +
+    ')$',
+);
+// Champs qu'on peut laisser vides (ils disparaissent alors de la fiche).
+const FACULTATIFS = /\.(effet|note|detail)$/;
+// Cases à cocher : validation des sources et des données des graphiques.
+const CASES = /^(sources\.\d+\.verifiee|arguments\.\d+\.(graphique|barres)\.verifie|objections\.\d+\.barres\.verifie)$/;
+// Le texte libre « Comprendre le débat », sous l'en-tête de la fiche.
+const CORPS = 'corps';
 
-type Modification = { chemin: string; valeur: string };
+type Modification = { chemin: string; valeur: string | boolean };
 
 const repondre = (status: number, corps: object) =>
   new Response(JSON.stringify(corps), { status, headers: { 'content-type': 'application/json' } });
@@ -42,10 +61,15 @@ export const POST: APIRoute = async ({ request }) => {
   // CORE_SCHEMA : les dates restent du texte (« 2026-11-07 »), comme dans le fichier.
   const donnees = yaml.load(m[1], { schema: yaml.CORE_SCHEMA }) as Record<string, any>;
 
+  let corps = m[2];
   for (const { chemin, valeur } of modifications) {
-    if (typeof chemin !== 'string' || !CHAMPS_MODIFIABLES.test(chemin) || typeof valeur !== 'string') {
-      return repondre(400, { erreur: `Champ non modifiable : ${chemin}` });
+    if (chemin === CORPS && typeof valeur === 'string') {
+      corps = `\n${valeur.trim()}\n`;
+      continue;
     }
+    const estCase = typeof chemin === 'string' && CASES.test(chemin) && typeof valeur === 'boolean';
+    const estTexte = typeof chemin === 'string' && CHAMPS_TEXTE.test(chemin) && typeof valeur === 'string';
+    if (!estCase && !estTexte) return repondre(400, { erreur: `Champ non modifiable : ${chemin}` });
     const etapes = chemin.split('.');
     let cible: any = donnees;
     for (const e of etapes.slice(0, -1)) {
@@ -53,14 +77,18 @@ export const POST: APIRoute = async ({ request }) => {
       if (cible === undefined) return repondre(400, { erreur: `Champ introuvable : ${chemin}` });
     }
     const cle = etapes[etapes.length - 1];
-    const propre = valeur.trim();
-    if (!propre && cle !== 'effet') return repondre(400, { erreur: `Ce champ ne peut pas être vide : ${chemin}` });
+    if (estCase) {
+      cible[cle] = valeur;
+      continue;
+    }
+    const propre = (valeur as string).trim();
+    if (!propre && !FACULTATIFS.test(chemin)) return repondre(400, { erreur: `Ce champ ne peut pas être vide : ${chemin}` });
     if (propre) cible[cle] = propre;
     else delete cible[cle];
   }
   donnees.miseAJour = new Date().toISOString().slice(0, 10);
 
   const entete = yaml.dump(donnees, { schema: yaml.CORE_SCHEMA, lineWidth: 80, noRefs: true });
-  await writeFile(fichier, `---\n${entete}---\n${m[2]}`, 'utf8');
+  await writeFile(fichier, `---\n${entete}---\n${corps}`, 'utf8');
   return repondre(200, { ok: true, modifiees: modifications.length });
 };
